@@ -1,0 +1,32 @@
+{
+  "agents": {
+    "pi": {
+      "skills": ["~/.pi/agent/skills"],
+      "prompts": ["~/.pi/agent/prompts"],
+      "extensions": ["~/.pi/agent/extensions"]
+    },
+    "codex": {
+      "skills": ["~/.codex/skills"]
+    },
+    "claude": {
+      "skills": ["~/.claude/skills"],
+      "prompts": ["~/.claude/commands"]
+    },
+    "opencode": {
+      "skills": ["~/.config/opencode/skills"],
+      "prompts": ["~/.config/opencode/commands"],
+      "extensions": ["~/.config/opencode/plugins"]
+    },
+    "cursor": {
+      "skills": ["~/.cursor/skills"]
+    },
+    "gemini": {
+      "skills": ["~/.gemini/skills"],
+      "prompts": ["~/.gemini/commands"],
+      "extensions": ["~/.gemini/extensions"]
+    },
+    "copilot": {
+      "skills": ["~/.copilot/skills"]
+    }
+  }
+}
