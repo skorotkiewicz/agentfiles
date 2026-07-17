@@ -1,0 +1,43 @@
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+python := "python3"
+atctl := python + " ./atctl.py"
+
+[private]
+default:
+    @just --list
+
+# Install the single-file CLI into ~/.local/bin.
+install:
+    install -Dm755 ./atctl.py "${HOME}/.local/bin/atctl"
+
+# Initialize ~/.at.
+init:
+    {{atctl}} init
+
+# Forward any command, e.g. `just at status`.
+at *args:
+    {{atctl}} {{args}}
+
+list:
+    {{atctl}} status
+
+doctor:
+    {{atctl}} doctor
+
+# `just enable skill:shredder pi`
+enable item agent:
+    {{atctl}} enable "{{item}}" --agent "{{agent}}"
+
+# `just disable skill:shredder pi`
+disable item agent:
+    {{atctl}} disable "{{item}}" --agent "{{agent}}"
+
+disable-all item:
+    {{atctl}} disable "{{item}}" --all
+
+update:
+    {{atctl}} update
+
+test:
+    {{python}} -m unittest discover -s tests -v

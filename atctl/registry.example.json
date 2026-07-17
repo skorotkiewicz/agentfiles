@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "sources": {
+    "personal": {
+      "type": "local",
+      "path": "/home/you/.at/catalog",
+      "added_at": "2026-07-17T12:00:00+00:00"
+    }
+  },
+  "items": {
+    "skill:shredder": {
+      "name": "shredder",
+      "kind": "skills",
+      "source": "personal",
+      "path": "skills/shredder",
+      "target_name": "shredder",
+      "enabled": [
+        "codex",
+        "pi"
+      ],
+      "added_at": "2026-07-17T12:00:00+00:00"
+    }
+  }
+}

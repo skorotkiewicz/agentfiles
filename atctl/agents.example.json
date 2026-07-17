@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "agents": {
+    "pi": {
+      "extensions": [
+        "~/.pi/agent/extensions"
+      ],
+      "prompts": [
+        "~/.pi/agent/prompts"
+      ],
+      "skills": [
+        "~/.pi/agent/skills"
+      ]
+    },
+    "codex": {
+      "skills": [
+        "~/.codex/skills"
+      ]
+    },
+    "claude": {
+      "prompts": [
+        "~/.claude/commands"
+      ],
+      "skills": [
+        "~/.claude/skills"
+      ]
+    },
+    "opencode": {
+      "extensions": [
+        "~/.config/opencode/plugins"
+      ],
+      "prompts": [
+        "~/.config/opencode/commands"
+      ],
+      "skills": [
+        "~/.config/opencode/skills"
+      ]
+    }
+  }
+}
