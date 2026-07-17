@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""at — a symlink-only manager for agent skills, prompts, and extensions.
+"""agentfiles — a symlink-only manager for agent skills, prompts, and extensions.
 
-One directory (~/.at by default), two JSON files, and symlinks. No compiled
+One directory (~/.agentfiles by default), two JSON files, and symlinks. No compiled
 program, no package manager, and it never runs an agent's plugin CLI. Agents
 discover enabled assets by scanning their discovery directory for symlinks.
 
-State (all under AT_HOME, override with the AT_HOME env var):
+State (all under AGENTFILES_HOME, override with the AGENTFILES_HOME env var):
   agents.json    editable config: which agents exist and where each keeps its
                 skills/prompts/extensions directories.
   registry.json  state: every source (git/local) and item, plus which agents
@@ -101,14 +101,19 @@ class Store:
     def init(self) -> None:
         self.root.mkdir(parents=True, exist_ok=True)
         self.sources_dir.mkdir(parents=True, exist_ok=True)
-        if not self.agents_path.exists():
-            write_json(self.agents_path, {"agents": {}})
+        # NOTE: agents.json is hand-edited by the user; agentfiles never writes it.
         if not self.registry_path.exists():
             write_json(self.registry_path, {"schema": SCHEMA, "sources": {}, "items": {}})
+        if not self.agents_path.exists():
+            die(f"agents.json not found in {self.root}; copy agents.example.json there "
+                f"(agentfiles never writes agents.json)")
 
     def require_init(self) -> None:
-        if not self.agents_path.exists() or not self.registry_path.exists():
-            die(f"{self.root} is not initialized; run: at init")
+        if not self.registry_path.exists():
+            die(f"{self.root} is not initialized; run: agentfiles init")
+        if not self.agents_path.exists():
+            die(f"agents.json not found in {self.root}; copy agents.example.json there "
+                f"(agentfiles never writes agents.json)")
 
     def agents(self) -> dict:
         self.require_init()
@@ -125,8 +130,10 @@ class Store:
         data.setdefault("items", {})
         return data
 
+    # Disabled: agentfiles never writes agents.json (hand-edited by the user).
     def save_agents(self, data: dict) -> None:
         write_json(self.agents_path, data)
+    ###
 
     def save_registry(self, data: dict) -> None:
         write_json(self.registry_path, data)
@@ -152,7 +159,9 @@ def git(*args: str, cwd: Path | None = None, capture: bool = False) -> str:
 
 
 def is_git(value: str) -> bool:
-    return "://" in value or value.startswith("git@") or value.endswith(".git") or ".git" in value
+    if "://" in value or value.startswith(("git@", "github:", "gitlab:")):
+        return True
+    return value.endswith(".git") or ".git" in value
 
 
 def normalize_git(value: str) -> str:
@@ -237,6 +246,7 @@ def cmd_agents(args, store: Store) -> None:
                     rows.append([agent, kind, p])
         table(["AGENT", "KIND", "DIRECTORY"], rows)
         return
+    # Disabled: agentfiles never writes agents.json (hand-edited by the user).
     validate_name(args.agent, "agent")
     kind = KINDS[canonical_type(args.kind)]
     cfg = data["agents"].setdefault(args.agent, {})
@@ -257,6 +267,8 @@ def cmd_agents(args, store: Store) -> None:
             data["agents"].pop(args.agent, None)
         store.save_agents(data)
         print(f"agent {args.agent}: removed {kind} -> {args.path}")
+    ###
+    die("agentfiles never writes agents.json; edit it by hand (see agents.example.json)")
 
 
 def add_source(store: Store, registry: dict, name: str, value: str, ref: str | None) -> str:
@@ -298,10 +310,19 @@ def add_source(store: Store, registry: dict, name: str, value: str, ref: str | N
 
 def cmd_add(args, store: Store) -> None:
     registry = store.registry()
-    slug = validate_name(args.slug, "slug")
-    typ = canonical_type(args.type)
-    subpath = (args.subpath or ".").strip("/")
-    source_name = add_source(store, registry, args.source_name or "", args.source, args.ref)
+    parts = args.parts
+    if parts[0].lower() in TYPE_ALIASES:        # leading kind: add skill name src subpath
+        typ = canonical_type(parts[0])
+        rest = parts[1:]
+    else:                                       # kind via --type: add name src subpath
+        typ = canonical_type(args.type)
+        rest = parts
+    if len(rest) < 2:
+        die("usage: at add [<kind>] <slug> <source> [subpath]")
+    slug = validate_name(rest[0], "slug")
+    source = rest[1]
+    subpath = (args.subpath or (rest[2] if len(rest) > 2 else ".")).strip("/")
+    source_name = add_source(store, registry, args.source_name or "", source, args.ref)
     source = registry["sources"][source_name]
     path = item_path(store, source, subpath)
     if not path.exists():
@@ -346,13 +367,14 @@ def discover_skills(root: Path, under: str | None = None) -> list[tuple[str, str
 
 
 def selected_agents(args, agents: dict, item: dict) -> list[str]:
+    names = list(getattr(args, "agent", None) or []) + list(getattr(args, "agent_flag", None) or [])
     if args.all:
         if not args.enable:
             return list(item["enabled"])
         return sorted(a for a, c in agents["agents"].items() if c.get(KINDS[item["type"]]))
-    if not args.agent:
+    if not names:
         die("pass an agent name or --all")
-    return args.agent
+    return names
 
 
 def apply_enable(store, registry, agents, slug, agents_list, enable):
@@ -426,6 +448,17 @@ def cmd_remove(args, store: Store) -> None:
             print(f"removed source checkout {item['source']}")
     store.save_registry(registry)
     print(f"removed {args.slug}")
+    # if source and not any(i["source"] == item["source"] for i in registry["items"].values()):
+    #     registry["sources"].pop(item["source"], None)
+    #     if source["type"] == "git":
+    #         checkout = (store.root / source["checkout"]).resolve()
+    #         # ponytail: only ever delete a manager-owned clone directly under sources/
+    #         if checkout.is_dir() and checkout.parent == store.sources_dir.resolve():
+    #             shutil.rmtree(checkout)
+    #             print(f"removed source checkout {item['source']}")
+    # store.save_registry(registry)
+    # print(f"removed {args.slug}")
+
 
 
 def cmd_list(args, store: Store) -> None:
@@ -530,29 +563,32 @@ def locked(store: Store):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="at", description=__doc__.splitlines()[0])
-    p.add_argument("--home", default=os.environ.get("AT_HOME", "~/.at"), help="manager directory (default ~/.at)")
+    p = argparse.ArgumentParser(prog="agentfiles", description=__doc__.splitlines()[0])
+    p.add_argument("--home", default=os.environ.get("AGENTFILES_HOME", "~/.agentfiles"), help="manager directory (default ~/.agentfiles)")
     sub = p.add_subparsers(dest="command", required=True)
 
-    sub.add_parser("init", help="create ~/.at, agents.json, registry.json, sources/")
+    sub.add_parser("init", help="create ~/.agentfiles, agents.json, registry.json, sources/")
     sub.add_parser("list", help="list registered items")
 
     a = sub.add_parser("agents", help="manage agent discovery directories")
     a_sub = a.add_subparsers(dest="agent_command", required=True)
     a_sub.add_parser("ls", aliases=["list"])
+    # Disabled: agentfiles never writes agents.json (hand-edited by the user).
     for c in ("add", "rm"):
         ap = a_sub.add_parser(c)
-        ap.add_argument("agent")
-        ap.add_argument("kind")
-        ap.add_argument("path")
+        ap.add_argument("kind", help="skills | prompts | extensions")
+        ap.add_argument("path", help="discovery directory")
+        ap.add_argument("--agent", required=True, help="agent name")
+    ###
 
-    add = sub.add_parser("add", help="register a source + item (not enabled yet)")
-    add.add_argument("slug")
-    add.add_argument("source", help="local directory, owner/repo, github:owner/repo, or git URL")
-    add.add_argument("--type", default="skill", help="skill | prompt | extension")
-    add.add_argument("--subpath", help="path within the source (default: root)")
+    add = sub.add_parser("add", help="register a source + item, optionally enable it")
+    add.add_argument("parts", nargs="+",
+                     help="[<kind>] <slug> <source> [subpath]  (kind: skill|prompt|extension; optional)")
+    add.add_argument("--subpath", help="path within the source (default: root); alt. to positional subpath")
+    add.add_argument("--type", default="skill", help="default kind when omitted as first arg")
     add.add_argument("--ref", help="git branch/tag/commit to check out")
     add.add_argument("--source-name", help="reuse/name the source explicitly")
+    add.add_argument("--agent", action="append", help="enable for this agent after adding (repeatable)")
 
     scan = sub.add_parser("scan", help="list SKILL.md directories under an item")
     scan.add_argument("slug")
@@ -561,7 +597,8 @@ def build_parser() -> argparse.ArgumentParser:
     for c, en in (("enable", True), ("disable", False)):
         ep = sub.add_parser(c, help=f"{c} an item for selected agents")
         ep.add_argument("slug")
-        ep.add_argument("agent", nargs="*", help="agent name(s)")
+        ep.add_argument("agent", nargs="*", help="agent name(s) (or use --agent)")
+        ep.add_argument("--agent", dest="agent_flag", action="append", help="agent name (repeatable)")
         ep.add_argument("--all", action="store_true", help="every compatible/enabled agent")
         ep.set_defaults(enable=en)
 
