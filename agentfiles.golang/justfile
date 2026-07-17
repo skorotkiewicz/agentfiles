@@ -1,0 +1,39 @@
+set shell := ["bash", "-euc"]
+
+default: check
+
+# Rewrite Go sources with gofmt.
+fmt:
+    gofmt -w $(rg --files cmd internal -g '*.go')
+
+# Fail when committed Go sources are not formatted.
+fmt-check:
+    @files="$(gofmt -l $(rg --files cmd internal -g '*.go'))"; if [ -n "$files" ]; then echo "Unformatted files:"; echo "$files"; exit 1; fi
+
+# Run static analysis.
+vet:
+    go vet ./...
+
+# Run the unit and CLI integration tests.
+test:
+    go test ./...
+
+# Run tests with the race detector.
+test-race:
+    go test -race ./...
+
+# Run all required local checks.
+check: fmt-check vet test
+
+# Build a version-stamped binary under dist/.
+build version="dev":
+    mkdir -p dist
+    go build -trimpath -ldflags "-X agentfiles/internal/cli.Version={{version}}" -o dist/agentfiles ./cmd/agentfiles
+
+# Install agentfiles into the active Go bin directory.
+install version="dev":
+    go install -trimpath -ldflags "-X agentfiles/internal/cli.Version={{version}}" ./cmd/agentfiles
+
+# Run the CLI from source, for example: just run agents
+run *args:
+    go run ./cmd/agentfiles {{args}}
