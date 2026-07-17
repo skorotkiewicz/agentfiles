@@ -1,4 +1,4 @@
-# at
+# agentfiles
 
 A symlink-only manager for agent skills, prompts, and extensions. One script,
 no build step, no package manager, and it never runs an agent's plugin CLI.
@@ -6,42 +6,36 @@ Symlinks are the whole activation mechanism — agents discover enabled assets
 by scanning their own directories.
 
 ```bash
-cp at.py ~/.local/bin/at        # that's it (needs python3 + git)
+cp agentfiles.py ~/.local/bin/agentfiles        # that's it (needs python3 + git)
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
 ## Quick start
 
 ```bash
-at init                                           # creates ~/.at (agents.json + registry.json + sources/)
-at agents add skills ~/.pi/skills --agent pi      # register an agent's discovery dir
-at add skill find-skills github:vercel-labs/skills skills/find-skills --agent pi
-at add skill find-skills github:vercel-labs/skills skills/find-skills   # kind as 1st arg
-at enable find-skills --all              # or every compatible agent
-at list
-at disable find-skills pi
-at update                                # git pull everything
-at status                               # list + drift check
-at doctor
-at remove find-skills
+cp agents.example.json ~/.agentfiles/agents.json   # edit by hand; agentfiles never writes it
+agentfiles init                                   # creates ~/.agentfiles (registry.json + sources/)
+agentfiles add find-skills github:vercel-labs/skills skills/find-skills --agent pi
+agentfiles add skill find-skills github:vercel-labs/skills skills/find-skills   # kind as 1st arg
+agentfiles enable find-skills --all              # or every compatible agent
+agentfiles list
+agentfiles disable find-skills pi
+agentfiles update                                # git pull everything
+agentfiles status                                # list + drift check
+agentfiles doctor
+agentfiles remove find-skills
 ```
 
-Configure agents with `at agents add/rm` (writes `agents.json`):
-
-```bash
-at agents add prompts ~/.pi/commands --agent pi
-at agents rm   skills  ~/.pi/skills   --agent pi
-at agents ls
-```
-
-`agents.json` lists each agent and where it keeps its `skills` / `prompts` /
-`extensions` directories. `at` reads it to know where to place symlinks.
+Configure agents by editing `~/.agentfiles/agents.json` directly (start from
+`agents.example.json`). `agentfiles` **never writes** `agents.json` — it only
+reads it to know where each agent discovers skills/prompts/extensions.
+`agentfiles agents ls` views the current mapping (read-only).
 
 ## How it works
 
 ```
-~/.at/
-  agents.json    config: agents -> {skills:[...], prompts:[...], extensions:[...]}
+~/.agentfiles/
+  agents.json    editable config: agents -> {skills:[...], prompts:[...], extensions:[...]}
   registry.json  state: sources + items + which agents each item is enabled for
   sources/       git checkouts (manager-owned)
 ```
@@ -52,17 +46,17 @@ or more agents; `disable` unlinks it without deleting the source.
 `update` pulls Git sources. `remove` unlinks everywhere and drops the source.
 
 - Filesystem only — it never runs `codex plugin`, `claude plugin`, `npm`, etc.
+- Enable refuses to overwrite an existing non-symlink path; disable only
+  removes symlinks that point at the managed source.
 - Mutations take a file lock; JSON writes are atomic.
-- `AT_HOME=/tmp/x at init` runs fully isolated.
+- `AGENTFILES_HOME=/tmp/x agentfiles init` runs fully isolated.
 
 ## Commands
 
 | command | what it does |
 |---|---|
-| `init` | create `~/.at`, `agents.json`, `registry.json`, `sources/` |
-| `agents ls` / `agents list` | view configured agents |
-| `agents add <kind> <dir> --agent <name>` | register an agent's discovery dir |
-| `agents rm <kind> <dir> --agent <name>` | forget an agent's discovery dir |
+| `init` | create `~/.agentfiles`, `registry.json`, `sources/` |
+| `agents ls` / `agents list` | view configured agents (read-only; `agentfiles` never writes `agents.json`) |
 | `add [<kind>] <slug> <src> [subpath \| --subpath PATH] [--ref] [--agent ...]` | register a source + item, opt. enable |
 | `scan <slug> [--under DIR]` | list `SKILL.md` directories under an item |
 | `enable <slug> [agent...] [--agent ...] [--all]` | symlink for selected agents |
