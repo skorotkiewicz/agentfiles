@@ -1,0 +1,52 @@
+# at — manage agent skills / prompts / extensions via symlinks + JSON state.
+# Filesystem only: never runs agent plugin CLIs. Enable = ln -s, disable = unlink.
+#
+# This justfile is intentionally PATH-FREE: the store location lives in man.sh
+# (AT_HOME, default ~/.at). Keeping paths out of this file stops a repo
+# path-normalizer from mangling them.
+
+default:
+    @just --list
+
+init:
+    @bash man.sh init
+
+# just add <url|path> [--type skill|prompt|extension] [--name slug] [--agent default]
+add +args:
+    @bash man.sh add {{args}}
+
+# just remove <slug>            purge everywhere (unlink + drop source)
+# just remove <slug> --agent X  disable for one agent only (source kept)
+remove +args:
+    @bash man.sh remove {{args}}
+
+# just update [slug]            git pull sources, re-link enabled
+update +args:
+    @bash man.sh update {{args}}
+
+# just enable <slug> [agent]    ln -s for that agent (default: default)
+enable +args:
+    @bash man.sh enable {{args}}
+
+# just disable <slug> [agent]   unlink for that agent
+disable +args:
+    @bash man.sh disable {{args}}
+
+# just list [agent|all]
+list +args:
+    @bash man.sh list {{args}}
+
+status:
+    @bash man.sh status
+
+sync:
+    @bash man.sh sync
+
+adopt:
+    @bash man.sh adopt
+
+doctor:
+    @bash man.sh doctor
+
+install:
+    @bash man.sh install
