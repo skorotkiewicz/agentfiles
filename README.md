@@ -14,12 +14,13 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ```bash
 cp agents.example.json ~/.agentfiles/agents.json   # edit by hand; agentfiles never writes it
-agentfiles init                                   # creates ~/.agentfiles (registry.json + sources/)
+agentfiles init                                   # creates ~/.agentfiles
+# agentfiles agents add skills ~/.pi/agent/skills --agent pi
 agentfiles add find-skills github:vercel-labs/skills skills/find-skills --agent pi
 agentfiles add skill find-skills github:vercel-labs/skills skills/find-skills   # kind as 1st arg
 agentfiles enable find-skills --all              # or every compatible agent
 agentfiles list
-agentfiles disable find-skills pi
+agentfiles disable find-skills --agent pi
 agentfiles update                                # git pull everything
 agentfiles status                                # list + drift check
 agentfiles doctor
@@ -30,6 +31,14 @@ Configure agents by editing `~/.agentfiles/agents.json` directly (start from
 `agents.example.json`). `agentfiles` **never writes** `agents.json` — it only
 reads it to know where each agent discovers skills/prompts/extensions.
 `agentfiles agents ls` views the current mapping (read-only).
+   <!--# one-time setup (per agent):
+   agentfiles agents add skills ~/.pi/agent/skills/engineering/tdd --agent nano
+
+   # then per item, forever:
+   agentfiles add skill tdd ~/src/tdd
+   agentfiles enable tdd --agent nano-->
+
+`AGENTFILES_HOME=/tmp/at-test agentfiles init` runs fully isolated for trying it out.
 
 ## How it works
 
@@ -49,7 +58,6 @@ or more agents; `disable` unlinks it without deleting the source.
 - Enable refuses to overwrite an existing non-symlink path; disable only
   removes symlinks that point at the managed source.
 - Mutations take a file lock; JSON writes are atomic.
-- `AGENTFILES_HOME=/tmp/x agentfiles init` runs fully isolated.
 
 ## Commands
 
@@ -71,3 +79,25 @@ or more agents; `disable` unlinks it without deleting the source.
 `--type` accepts `skill/prompt/extension` and common aliases
 (`skills`, `command`, `plugin`, ...). Git sources may be `owner/repo`,
 `github:owner/repo`, a full URL, or `user@host:path`.
+
+<!-- agentfiles init -->
+<!-- agentfiles agents add skills ~/.pi/skills --agent pi -->
+<!-- agentfiles agents add prompts ~/.pi/prompts --agent pi -->
+<!-- agentfiles agents add skills ~/.codex/skills --agent codex -->
+<!-- agentfiles agents add skills ~/.claude/skills --agent claude -->
+<!-- agentfiles agents add skills ~/.opencode/skills --agent opencode -->
+<!-- agentfiles agents add skills ~/.cursor/skills --agent cursor -->
+<!-- agentfiles agents add skills ~/.gemini/skills --agent gemini -->
+<!-- agentfiles add skill find-skills github:vercel-labs/skills skills/find-skills --agent pi -->
+<!-- agentfiles add skill find-skills github:vercel-labs/skills skills/find-skills -->
+<!-- agentfiles add prompt my-prompts github:foo/prompts prompts/my-prompts -->
+<!-- agentfiles enable find-skills --all -->
+<!-- agentfiles enable find-skills pi codex -->
+<!-- agentfiles disable find-skills pi -->
+<!-- agentfiles list -->
+<!-- agentfiles status -->
+<!-- agentfiles scan find-skills -->
+<!-- agentfiles update -->
+<!-- agentfiles sync -->
+<!-- agentfiles remove find-skills -->
+<!-- agentfiles doctor -->

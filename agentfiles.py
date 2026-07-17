@@ -459,8 +459,6 @@ def cmd_remove(args, store: Store) -> None:
     # store.save_registry(registry)
     # print(f"removed {args.slug}")
 
-
-
 def cmd_list(args, store: Store) -> None:
     registry = store.registry()
     rows = [[k, v["type"], v["source"], ",".join(v.get("enabled", [])) or "-"]
@@ -652,4 +650,3 @@ def dispatch(args, store: Store) -> None:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
