@@ -25,6 +25,11 @@
       "prompts": ["~/.gemini/commands"],
       "extensions": ["~/.gemini/extensions"]
     },
+    "nano": {
+      "skills": ["~/Dev/Rust/nano-prototype/at/skills"],
+      "prompts": ["~/Dev/Rust/nano-prototype/at/commands"],
+      "extensions": ["~/Dev/Rust/nano-prototype/at/extensions"]
+    },
     "copilot": {
       "skills": ["~/.copilot/skills"]
     }
