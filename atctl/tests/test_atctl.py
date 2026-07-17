@@ -27,7 +27,9 @@ class AtctlTests(unittest.TestCase):
         self.catalog = self.base / "catalog"
         skill = self.catalog / "skills" / "demo"
         skill.mkdir(parents=True)
-        (skill / "SKILL.md").write_text("---\nname: demo\ndescription: demo\n---\n", encoding="utf-8")
+        (skill / "SKILL.md").write_text(
+            "---\nname: demo\ndescription: demo\n---\n", encoding="utf-8"
+        )
 
     def tearDown(self) -> None:
         self.temp.cleanup()
@@ -43,7 +45,9 @@ class AtctlTests(unittest.TestCase):
             stderr=stderr.getvalue(),
         )
         if ok and result.returncode != 0:
-            self.fail(f"command failed: {args}\nstdout={result.stdout}\nstderr={result.stderr}")
+            self.fail(
+                f"command failed: {args}\nstdout={result.stdout}\nstderr={result.stderr}"
+            )
         return result
 
     def bootstrap(self) -> None:
@@ -53,7 +57,9 @@ class AtctlTests(unittest.TestCase):
         agents["agents"] = {"test": {"skills": [str(self.agent_dir)]}}
         agents_path.write_text(json.dumps(agents), encoding="utf-8")
         self.run_cli("source", "add", "local", str(self.catalog))
-        self.run_cli("item", "add", "skill", "demo", "--source", "local", "--path", "skills/demo")
+        self.run_cli(
+            "item", "add", "skill", "demo", "--source", "local", "--path", "skills/demo"
+        )
 
     def test_enable_disable_roundtrip(self) -> None:
         self.bootstrap()
@@ -90,7 +96,6 @@ class AtctlTests(unittest.TestCase):
         registry = json.loads((self.home / "registry.json").read_text())
         self.assertIn("skill:demo", registry["items"])
 
-
     def test_disable_all(self) -> None:
         self.bootstrap()
         self.run_cli("enable", "demo", "--agent", "test")
@@ -106,13 +111,23 @@ class AtctlTests(unittest.TestCase):
             "---\nname: git-demo\ndescription: demo\n---\n", encoding="utf-8"
         )
         subprocess.run(["git", "-C", str(upstream), "init", "-q"], check=True)
-        subprocess.run(["git", "-C", str(upstream), "config", "user.email", "test@example.com"], check=True)
-        subprocess.run(["git", "-C", str(upstream), "config", "user.name", "test"], check=True)
+        subprocess.run(
+            ["git", "-C", str(upstream), "config", "user.email", "test@example.com"],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(upstream), "config", "user.name", "test"], check=True
+        )
         subprocess.run(["git", "-C", str(upstream), "add", "."], check=True)
         subprocess.run(["git", "-C", str(upstream), "commit", "-qm", "one"], check=True)
         subprocess.run(["git", "-C", str(upstream), "branch", "-M", "main"], check=True)
-        subprocess.run(["git", "clone", "-q", "--bare", str(upstream), str(remote)], check=True)
-        subprocess.run(["git", "-C", str(remote), "symbolic-ref", "HEAD", "refs/heads/main"], check=True)
+        subprocess.run(
+            ["git", "clone", "-q", "--bare", str(upstream), str(remote)], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(remote), "symbolic-ref", "HEAD", "refs/heads/main"],
+            check=True,
+        )
 
         self.run_cli("init")
         self.run_cli("install", f"file://{remote}", "--source-name", "remote")
@@ -124,8 +139,13 @@ class AtctlTests(unittest.TestCase):
         )
         subprocess.run(["git", "-C", str(upstream), "add", "."], check=True)
         subprocess.run(["git", "-C", str(upstream), "commit", "-qm", "two"], check=True)
-        subprocess.run(["git", "-C", str(upstream), "remote", "add", "origin", str(remote)], check=True)
-        subprocess.run(["git", "-C", str(upstream), "push", "-q", "origin", "main"], check=True)
+        subprocess.run(
+            ["git", "-C", str(upstream), "remote", "add", "origin", str(remote)],
+            check=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(upstream), "push", "-q", "origin", "main"], check=True
+        )
 
         self.run_cli("update", "remote")
         registry = json.loads(registry_path.read_text())

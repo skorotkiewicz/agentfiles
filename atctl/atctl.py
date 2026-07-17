@@ -36,7 +36,16 @@ KIND_ALIASES = {
     "commands": "prompts",
 }
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
-SKIP_SCAN_DIRS = {".git", ".hg", ".svn", "node_modules", "vendor", "dist", "build", "target"}
+SKIP_SCAN_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    "node_modules",
+    "vendor",
+    "dist",
+    "build",
+    "target",
+}
 
 DEFAULT_AGENTS = {
     "schema": SCHEMA,
@@ -82,12 +91,16 @@ def canonical_kind(value: str) -> str:
     try:
         return KIND_ALIASES[value.lower()]
     except KeyError as exc:
-        raise AtError(f"unknown kind {value!r}; choose skills, prompts, or extensions") from exc
+        raise AtError(
+            f"unknown kind {value!r}; choose skills, prompts, or extensions"
+        ) from exc
 
 
 def validate_name(value: str, label: str = "name") -> str:
     if not NAME_RE.fullmatch(value):
-        raise AtError(f"invalid {label} {value!r}; use letters, digits, dot, underscore, or dash")
+        raise AtError(
+            f"invalid {label} {value!r}; use letters, digits, dot, underscore, or dash"
+        )
     return value
 
 
@@ -190,14 +203,18 @@ def validate_agents(data: dict[str, Any]) -> None:
         for kind, paths in config.items():
             if kind not in KINDS:
                 raise AtError(f"agent {agent!r} has non-canonical kind {kind!r}")
-            if not isinstance(paths, list) or not all(isinstance(p, str) and p for p in paths):
+            if not isinstance(paths, list) or not all(
+                isinstance(p, str) and p for p in paths
+            ):
                 raise AtError(f"agent {agent!r} kind {kind!r} must be a list of paths")
 
 
 def validate_registry(data: dict[str, Any]) -> None:
     if data.get("schema") != SCHEMA:
         raise AtError("invalid registry.json schema")
-    if not isinstance(data.get("sources"), dict) or not isinstance(data.get("items"), dict):
+    if not isinstance(data.get("sources"), dict) or not isinstance(
+        data.get("items"), dict
+    ):
         raise AtError("registry.json must contain source and item objects")
 
 
@@ -237,7 +254,9 @@ def git(repo: Path | None, *args: str, capture: bool = False) -> str:
         raise AtError("git is required for Git sources") from exc
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or "").strip()
-        raise AtError(f"git failed: {' '.join(command)}" + (f"\n{detail}" if detail else "")) from exc
+        raise AtError(
+            f"git failed: {' '.join(command)}" + (f"\n{detail}" if detail else "")
+        ) from exc
     return (result.stdout or "").strip()
 
 
@@ -263,10 +282,18 @@ def git_ref_kind(repo: Path, requested_ref: str | None) -> tuple[str, str, str]:
     if requested_ref:
         remote_ref = f"refs/remotes/origin/{requested_ref}"
         try:
-            commit = git(repo, "rev-parse", "--verify", f"{remote_ref}^{{commit}}", capture=True)
+            commit = git(
+                repo, "rev-parse", "--verify", f"{remote_ref}^{{commit}}", capture=True
+            )
             return requested_ref, "branch", commit
         except AtError:
-            commit = git(repo, "rev-parse", "--verify", f"{requested_ref}^{{commit}}", capture=True)
+            commit = git(
+                repo,
+                "rev-parse",
+                "--verify",
+                f"{requested_ref}^{{commit}}",
+                capture=True,
+            )
             return requested_ref, "fixed", commit
 
     branch = git(repo, "symbolic-ref", "--short", "HEAD", capture=True)
@@ -274,7 +301,9 @@ def git_ref_kind(repo: Path, requested_ref: str | None) -> tuple[str, str, str]:
     return branch, "branch", commit
 
 
-def add_source(store: Store, registry: dict[str, Any], name: str, value: str, ref: str | None) -> dict[str, Any]:
+def add_source(
+    store: Store, registry: dict[str, Any], name: str, value: str, ref: str | None
+) -> dict[str, Any]:
     validate_name(name, "source name")
     if name in registry["sources"]:
         raise AtError(f"source {name!r} already exists")
@@ -324,7 +353,9 @@ def add_source(store: Store, registry: dict[str, Any], name: str, value: str, re
     return source
 
 
-def restore_source(store: Store, name: str, source: dict[str, Any], dry_run: bool = False) -> bool:
+def restore_source(
+    store: Store, name: str, source: dict[str, Any], dry_run: bool = False
+) -> bool:
     root = source_root(store, source)
     if root.is_dir():
         return False
@@ -341,7 +372,13 @@ def restore_source(store: Store, name: str, source: dict[str, Any], dry_run: boo
         git(None, "clone", "--origin", "origin", "--", source["url"], str(temporary))
         revision = source.get("revision")
         if revision:
-            commit = git(temporary, "rev-parse", "--verify", f"{revision}^{{commit}}", capture=True)
+            commit = git(
+                temporary,
+                "rev-parse",
+                "--verify",
+                f"{revision}^{{commit}}",
+                capture=True,
+            )
         elif source.get("ref_kind") == "branch":
             commit = git(
                 temporary,
@@ -351,7 +388,13 @@ def restore_source(store: Store, name: str, source: dict[str, Any], dry_run: boo
                 capture=True,
             )
         else:
-            commit = git(temporary, "rev-parse", "--verify", f"{source['ref']}^{{commit}}", capture=True)
+            commit = git(
+                temporary,
+                "rev-parse",
+                "--verify",
+                f"{source['ref']}^{{commit}}",
+                capture=True,
+            )
         git(temporary, "checkout", "--detach", commit)
         os.replace(temporary, root)
     except Exception:
@@ -374,7 +417,13 @@ def update_source(store: Store, name: str, source: dict[str, Any]) -> tuple[str,
     git(repo, "fetch", "--prune", "--force", "--tags", "origin")
     ref = source["ref"]
     if source.get("ref_kind") == "branch":
-        commit = git(repo, "rev-parse", "--verify", f"refs/remotes/origin/{ref}^{{commit}}", capture=True)
+        commit = git(
+            repo,
+            "rev-parse",
+            "--verify",
+            f"refs/remotes/origin/{ref}^{{commit}}",
+            capture=True,
+        )
     else:
         commit = git(repo, "rev-parse", "--verify", f"{ref}^{{commit}}", capture=True)
     git(repo, "checkout", "--detach", commit)
@@ -406,7 +455,9 @@ def discover_skills(root: Path, under: str | None = None) -> list[tuple[str, str
         raise AtError(f"scan path is not a directory: {scan_root}")
     found: list[tuple[str, str]] = []
     for current, dirs, files in os.walk(scan_root):
-        dirs[:] = sorted(d for d in dirs if d not in SKIP_SCAN_DIRS and not d.startswith(".atctl-"))
+        dirs[:] = sorted(
+            d for d in dirs if d not in SKIP_SCAN_DIRS and not d.startswith(".atctl-")
+        )
         if "SKILL.md" in files:
             directory = Path(current)
             name = parse_skill_name(directory / "SKILL.md")
@@ -471,11 +522,17 @@ def resolve_item_ids(registry: dict[str, Any], selectors: Iterable[str]) -> list
         if selector in registry["items"]:
             identifier = selector
         else:
-            matches = [key for key, item in registry["items"].items() if item.get("name") == selector]
+            matches = [
+                key
+                for key, item in registry["items"].items()
+                if item.get("name") == selector
+            ]
             if not matches:
                 raise AtError(f"unknown item {selector!r}")
             if len(matches) > 1:
-                raise AtError(f"ambiguous item {selector!r}; use one of: {', '.join(sorted(matches))}")
+                raise AtError(
+                    f"ambiguous item {selector!r}; use one of: {', '.join(sorted(matches))}"
+                )
             identifier = matches[0]
         if identifier not in resolved:
             resolved.append(identifier)
@@ -485,7 +542,9 @@ def resolve_item_ids(registry: dict[str, Any], selectors: Iterable[str]) -> list
 def agent_targets(agents: dict[str, Any], agent: str, kind: str) -> list[Path]:
     config = agents["agents"].get(agent)
     if config is None:
-        raise AtError(f"unknown agent {agent!r}; edit agents.json or run 'atctl agent add'")
+        raise AtError(
+            f"unknown agent {agent!r}; edit agents.json or run 'atctl agent add'"
+        )
     targets = config.get(kind, [])
     if not targets:
         raise AtError(f"agent {agent!r} has no target configured for {kind}")
@@ -496,7 +555,11 @@ def symlink_points_to(link: Path, expected: Path) -> bool:
     if not link.is_symlink():
         return False
     raw = os.readlink(link)
-    actual = (link.parent / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
+    actual = (
+        (link.parent / raw).resolve()
+        if not Path(raw).is_absolute()
+        else Path(raw).resolve()
+    )
     return actual == expected.resolve()
 
 
@@ -675,7 +738,11 @@ def cmd_source(args: argparse.Namespace, store: Store) -> None:
         if args.source_command == "rm":
             if args.name not in registry["sources"]:
                 raise AtError(f"unknown source {args.name!r}")
-            users = [key for key, item in registry["items"].items() if item["source"] == args.name]
+            users = [
+                key
+                for key, item in registry["items"].items()
+                if item["source"] == args.name
+            ]
             if users:
                 raise AtError(f"source is still used by: {', '.join(sorted(users))}")
             source = registry["sources"].pop(args.name)
@@ -683,7 +750,9 @@ def cmd_source(args: argparse.Namespace, store: Store) -> None:
             if args.delete_checkout and source["type"] == "git":
                 checkout = source_root(store, source)
                 if checkout.parent.resolve() != store.sources_dir.resolve():
-                    raise AtError(f"refusing to delete unexpected checkout path: {checkout}")
+                    raise AtError(
+                        f"refusing to delete unexpected checkout path: {checkout}"
+                    )
                 shutil.rmtree(checkout)
             print(f"removed source {args.name}")
 
@@ -706,13 +775,15 @@ def cmd_item(args: argparse.Namespace, store: Store) -> None:
         if args.item_command == "ls":
             rows = []
             for identifier, item in sorted(registry["items"].items()):
-                rows.append([
-                    identifier,
-                    item["kind"],
-                    item["source"],
-                    item["path"],
-                    ",".join(item.get("enabled", [])) or "-",
-                ])
+                rows.append(
+                    [
+                        identifier,
+                        item["kind"],
+                        item["source"],
+                        item["path"],
+                        ",".join(item.get("enabled", [])) or "-",
+                    ]
+                )
             print_table(["ITEM", "KIND", "SOURCE", "PATH", "ENABLED"], rows)
             return
         if args.item_command == "add":
@@ -727,7 +798,9 @@ def cmd_item(args: argparse.Namespace, store: Store) -> None:
                 args.id,
             )
             if args.agent:
-                actions = enable_items(store, agents, registry, [identifier], args.agent, args.dry_run)
+                actions = enable_items(
+                    store, agents, registry, [identifier], args.agent, args.dry_run
+                )
                 for action in actions:
                     print(action)
             if not args.dry_run:
@@ -736,14 +809,26 @@ def cmd_item(args: argparse.Namespace, store: Store) -> None:
             return
         if args.item_command == "rm":
             ids = resolve_item_ids(registry, args.items)
-            enabled = {identifier: registry["items"][identifier].get("enabled", []) for identifier in ids}
+            enabled = {
+                identifier: registry["items"][identifier].get("enabled", [])
+                for identifier in ids
+            }
             active = {key: value for key, value in enabled.items() if value}
             if active and not args.disable:
-                detail = "; ".join(f"{key}: {','.join(value)}" for key, value in active.items())
+                detail = "; ".join(
+                    f"{key}: {','.join(value)}" for key, value in active.items()
+                )
                 raise AtError(f"items are enabled ({detail}); pass --disable first")
             if args.disable:
                 for identifier, agent_names in active.items():
-                    for action in disable_items(store, agents, registry, [identifier], list(agent_names), args.dry_run):
+                    for action in disable_items(
+                        store,
+                        agents,
+                        registry,
+                        [identifier],
+                        list(agent_names),
+                        args.dry_run,
+                    ):
                         print(action)
             if not args.dry_run:
                 for identifier in ids:
@@ -761,7 +846,9 @@ def cmd_install(args: argparse.Namespace, store: Store) -> None:
         source_name = args.source_name or default_source_name(args.source)
         if source_name not in registry["sources"]:
             if args.dry_run:
-                raise AtError("dry-run install requires the source to already be registered")
+                raise AtError(
+                    "dry-run install requires the source to already be registered"
+                )
             add_source(store, registry, source_name, args.source, args.ref)
         source = registry["sources"][source_name]
         discovered = discover_skills(source_root(store, source), args.under)
@@ -778,11 +865,16 @@ def cmd_install(args: argparse.Namespace, store: Store) -> None:
             identifier = add_item(store, registry, "skills", name, source_name, path)
             identifiers.append(identifier)
         if args.agent:
-            for action in enable_items(store, agents, registry, identifiers, args.agent, args.dry_run):
+            for action in enable_items(
+                store, agents, registry, identifiers, args.agent, args.dry_run
+            ):
                 print(action)
         if not args.dry_run:
             atomic_write_json(store.registry_path, registry)
-        print(f"registered {len(identifiers)} skill(s) from {source_name}" + (" (dry run)" if args.dry_run else ""))
+        print(
+            f"registered {len(identifiers)} skill(s) from {source_name}"
+            + (" (dry run)" if args.dry_run else "")
+        )
 
 
 def cmd_enable_disable(args: argparse.Namespace, store: Store, enable: bool) -> None:
@@ -813,9 +905,13 @@ def cmd_enable_disable(args: argparse.Namespace, store: Store, enable: bool) -> 
                 print(f"current  {'all':<10} {identifier}: no matching agents")
                 continue
             actions = (
-                enable_items(store, agents, registry, [identifier], selected, args.dry_run)
+                enable_items(
+                    store, agents, registry, [identifier], selected, args.dry_run
+                )
                 if enable
-                else disable_items(store, agents, registry, [identifier], selected, args.dry_run)
+                else disable_items(
+                    store, agents, registry, [identifier], selected, args.dry_run
+                )
             )
             for action in actions:
                 print(action)
@@ -850,7 +946,14 @@ def cmd_sync(args: argparse.Namespace, store: Store) -> None:
             enabled = item.get("enabled", [])
             if enabled:
                 all_plans.extend(
-                    plan_links(store, agents, registry, [identifier], enabled, allow_missing=args.dry_run)
+                    plan_links(
+                        store,
+                        agents,
+                        registry,
+                        [identifier],
+                        enabled,
+                        allow_missing=args.dry_run,
+                    )
                 )
         for identifier, agent, source, target in all_plans:
             if target.exists() or target.is_symlink():
@@ -875,12 +978,14 @@ def cmd_status(args: argparse.Namespace, store: Store) -> None:
     registry = store.registry()
     rows = []
     for identifier, item in sorted(registry["items"].items()):
-        rows.append([
-            identifier,
-            item["source"],
-            item["path"],
-            ",".join(item.get("enabled", [])) or "-",
-        ])
+        rows.append(
+            [
+                identifier,
+                item["source"],
+                item["path"],
+                ",".join(item.get("enabled", [])) or "-",
+            ]
+        )
     print_table(["ITEM", "SOURCE", "PATH", "ENABLED"], rows)
 
 
@@ -905,9 +1010,13 @@ def cmd_doctor(args: argparse.Namespace, store: Store) -> None:
                     checks += 1
                     target = directory / item["target_name"]
                     if not target.is_symlink():
-                        problems.append(f"missing link {identifier} for {agent}: {target}")
+                        problems.append(
+                            f"missing link {identifier} for {agent}: {target}"
+                        )
                     elif not symlink_points_to(target, source):
-                        problems.append(f"wrong link {identifier} for {agent}: {target}")
+                        problems.append(
+                            f"wrong link {identifier} for {agent}: {target}"
+                        )
         except AtError as exc:
             problems.append(f"{identifier}: {exc}")
     if problems:
@@ -922,7 +1031,11 @@ def build_parser() -> argparse.ArgumentParser:
         prog="atctl",
         description="Manage agent skills, prompts, and extensions with canonical sources and symlinks.",
     )
-    parser.add_argument("--home", default=os.environ.get("AT_HOME", "~/.at"), help="manager directory (default: ~/.at or AT_HOME)")
+    parser.add_argument(
+        "--home",
+        default=os.environ.get("AT_HOME", "~/.at"),
+        help="manager directory (default: ~/.at or AT_HOME)",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     sub.add_parser("init", help="create agents.json, registry.json, and sources/")
@@ -941,23 +1054,37 @@ def build_parser() -> argparse.ArgumentParser:
     source_sub.add_parser("ls", aliases=["list"])
     p = source_sub.add_parser("add")
     p.add_argument("name")
-    p.add_argument("source", help="local directory, owner/repo, github:owner/repo, or Git URL")
+    p.add_argument(
+        "source", help="local directory, owner/repo, github:owner/repo, or Git URL"
+    )
     p.add_argument("--ref", help="branch, tag, or commit")
     p = source_sub.add_parser("rm")
     p.add_argument("name")
-    p.add_argument("--delete-checkout", action="store_true", help="also delete a managed Git checkout")
+    p.add_argument(
+        "--delete-checkout",
+        action="store_true",
+        help="also delete a managed Git checkout",
+    )
 
-    scan = sub.add_parser("scan", help="find SKILL.md directories in a registered source")
+    scan = sub.add_parser(
+        "scan", help="find SKILL.md directories in a registered source"
+    )
     scan.add_argument("source")
     scan.add_argument("--under", help="scan only this relative directory")
 
-    install = sub.add_parser("install", help="register a source and its discovered skills")
+    install = sub.add_parser(
+        "install", help="register a source and its discovered skills"
+    )
     install.add_argument("source")
     install.add_argument("--source-name")
     install.add_argument("--ref")
     install.add_argument("--under", help="scan only this relative directory")
-    install.add_argument("--skill", action="append", help="register only this skill; repeatable")
-    install.add_argument("--agent", action="append", help="enable for this agent; repeatable")
+    install.add_argument(
+        "--skill", action="append", help="register only this skill; repeatable"
+    )
+    install.add_argument(
+        "--agent", action="append", help="enable for this agent; repeatable"
+    )
     install.add_argument("--dry-run", action="store_true")
 
     item = sub.add_parser("item", help="manage registered items")
@@ -981,14 +1108,24 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(command, help=f"{command} items for selected agents")
         p.add_argument("items", nargs="+")
         p.add_argument("--agent", action="append")
-        p.add_argument("--all", action="store_true", help="apply to every compatible/currently enabled agent")
+        p.add_argument(
+            "--all",
+            action="store_true",
+            help="apply to every compatible/currently enabled agent",
+        )
         p.add_argument("--dry-run", action="store_true")
 
-    update = sub.add_parser("update", help="fetch and check out latest configured Git refs")
+    update = sub.add_parser(
+        "update", help="fetch and check out latest configured Git refs"
+    )
     update.add_argument("sources", nargs="*")
-    sync = sub.add_parser("sync", help="restore missing links declared in registry.json")
+    sync = sub.add_parser(
+        "sync", help="restore missing links declared in registry.json"
+    )
     sync.add_argument("--dry-run", action="store_true")
-    sub.add_parser("status", aliases=["ls"], help="show registered items and enablement")
+    sub.add_parser(
+        "status", aliases=["ls"], help="show registered items and enablement"
+    )
     sub.add_parser("doctor", help="validate sources, items, and enabled links")
     return parser
 

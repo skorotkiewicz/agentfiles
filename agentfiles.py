@@ -12,6 +12,7 @@ State (all under AGENTFILES_HOME, override with the AGENTFILES_HOME env var):
                 each item is enabled for.
   sources/       git checkouts cloned here (manager-owned).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -34,9 +35,16 @@ SCHEMA = 1
 # Item "type" is singular (one skill); agents.json keys are plural (a dir holds many).
 KINDS = {"skill": "skills", "prompt": "prompts", "extension": "extensions"}
 TYPE_ALIASES = {
-    "skill": "skill", "skills": "skill",
-    "prompt": "prompt", "prompts": "prompt", "command": "prompt", "commands": "prompt",
-    "extension": "extension", "extensions": "extension", "plugin": "extension", "plugins": "extension",
+    "skill": "skill",
+    "skills": "skill",
+    "prompt": "prompt",
+    "prompts": "prompt",
+    "command": "prompt",
+    "commands": "prompt",
+    "extension": "extension",
+    "extensions": "extension",
+    "plugin": "extension",
+    "plugins": "extension",
 }
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 SKIP_DIRS = {".git", ".hg", ".svn", "node_modules", "vendor", "dist", "build", "target"}
@@ -134,14 +142,18 @@ class Store:
         if not self.agents_path.exists():
             write_json(self.agents_path, {"agents": {}})
         if not self.registry_path.exists():
-            write_json(self.registry_path, {"schema": SCHEMA, "sources": {}, "items": {}})
+            write_json(
+                self.registry_path, {"schema": SCHEMA, "sources": {}, "items": {}}
+            )
 
     def require_init(self) -> None:
         if not self.registry_path.exists():
             die(f"{self.root} is not initialized; run: agentfiles init")
         if not self.agents_path.exists():
-            die(f"agents.json not found in {self.root}; copy agents.example.json there "
-                f"(agentfiles never writes agents.json)")
+            die(
+                f"agents.json not found in {self.root}; copy agents.example.json there "
+                f"(agentfiles never writes agents.json)"
+            )
 
     def agents(self) -> dict:
         self.require_init()
@@ -154,16 +166,24 @@ class Store:
                 die(f"invalid agents.json: agent {name!r} must be an object")
             for kind in KINDS.values():
                 paths = cfg.get(kind, [])
-                if not isinstance(paths, list) or not all(isinstance(p, str) and p for p in paths):
+                if not isinstance(paths, list) or not all(
+                    isinstance(p, str) and p for p in paths
+                ):
                     die(f"invalid agents.json: {name}.{kind} must be a list of paths")
         return data
 
     def registry(self) -> dict:
         self.require_init()
-        data = read_json(self.registry_path, {"schema": SCHEMA, "sources": {}, "items": {}})
+        data = read_json(
+            self.registry_path, {"schema": SCHEMA, "sources": {}, "items": {}}
+        )
         if data.get("schema") != SCHEMA:
-            die(f"unsupported registry schema {data.get('schema')!r}; expected {SCHEMA}")
-        if not isinstance(data.get("sources"), dict) or not isinstance(data.get("items"), dict):
+            die(
+                f"unsupported registry schema {data.get('schema')!r}; expected {SCHEMA}"
+            )
+        if not isinstance(data.get("sources"), dict) or not isinstance(
+            data.get("items"), dict
+        ):
             die("invalid registry.json: 'sources' and 'items' must be objects")
         for name, source in data["sources"].items():
             validate_name(name, "source name")
@@ -181,16 +201,22 @@ class Store:
 
 # --- git / source helpers ----------------------------------------------------
 
-def git(*args: str, cwd: Path | None = None, capture: bool = False,
-        check: bool = True) -> str:
+
+def git(
+    *args: str, cwd: Path | None = None, capture: bool = False, check: bool = True
+) -> str:
     cmd = ["git", "-c", "core.hooksPath=/dev/null"]
     if cwd is not None:
         cmd += ["-C", str(cwd)]
     cmd += list(args)
     try:
-        res = subprocess.run(cmd, check=False, text=True,
-                             stdout=subprocess.PIPE if capture else None,
-                             stderr=subprocess.PIPE if capture else None)
+        res = subprocess.run(
+            cmd,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE if capture else None,
+            stderr=subprocess.PIPE if capture else None,
+        )
     except FileNotFoundError:
         die("git is required for git sources")
     if res.returncode:
@@ -209,9 +235,9 @@ def is_git(value: str) -> bool:
 
 def normalize_git(value: str) -> str:
     if value.startswith("github:"):
-        return f"https://github.com/{value[len('github:'):].strip('/')}.git"
+        return f"https://github.com/{value[len('github:') :].strip('/')}.git"
     if value.startswith("gitlab:"):
-        return f"https://gitlab.com/{value[len('gitlab:'):].strip('/')}.git"
+        return f"https://gitlab.com/{value[len('gitlab:') :].strip('/')}.git"
     if "://" not in value and not value.startswith("git@") and value.count("/") == 1:
         return f"https://github.com/{value.strip('/')}.git"
     return value
@@ -221,7 +247,7 @@ def default_name(value: str) -> str:
     # ponytail: git sources default to org-repo (vercel-labs-skills), not just the repo basename
     v = value
     if v.startswith("github:"):
-        v = f"https://github.com/{v[len('github:'):].strip('/')}.git"
+        v = f"https://github.com/{v[len('github:') :].strip('/')}.git"
     elif v.startswith("git@"):
         v = "https://" + v[4:].replace(":", "/", 1)
     if "://" in v:
@@ -243,7 +269,9 @@ def source_root(store: Store, source: dict) -> Path:
         checkout = Path(source.get("checkout", ""))
         if checkout.is_absolute():
             die(f"invalid managed checkout path: {checkout}")
-        root = ensure_within(store.sources_dir, store.root / checkout, "managed checkout")
+        root = ensure_within(
+            store.sources_dir, store.root / checkout, "managed checkout"
+        )
         if root.parent != store.sources_dir.resolve():
             die(f"managed checkout must be directly under {store.sources_dir}: {root}")
         return root
@@ -260,6 +288,7 @@ def item_path(store: Store, source: dict, subpath: str) -> Path:
 
 # --- symlink helpers ---------------------------------------------------------
 
+
 def link_targets(store: Store, agents: dict, item: dict, agent: str) -> list[Path]:
     cfg = agents["agents"].get(agent)
     if cfg is None:
@@ -273,8 +302,9 @@ def link_targets(store: Store, agents: dict, item: dict, agent: str) -> list[Pat
     return [expand(d) / item["slug"] for d in dirs]
 
 
-def inspect_link_targets(agents: dict, item: dict,
-                         agent: str) -> tuple[list[Path], str | None]:
+def inspect_link_targets(
+    agents: dict, item: dict, agent: str
+) -> tuple[list[Path], str | None]:
     cfg = agents.get("agents", {}).get(agent)
     if cfg is None:
         return [], f"unknown agent {agent!r}"
@@ -294,7 +324,11 @@ def points_to(link: Path, target: Path) -> bool:
     if not link.is_symlink():
         return False
     raw = os.readlink(link)
-    actual = (link.parent / raw).resolve() if not Path(raw).is_absolute() else Path(raw).resolve()
+    actual = (
+        (link.parent / raw).resolve()
+        if not Path(raw).is_absolute()
+        else Path(raw).resolve()
+    )
     return actual == target.resolve()
 
 
@@ -325,9 +359,14 @@ def drop_link(target: Path, source: Path) -> bool:
     return True
 
 
-def preflight_links(store: Store, agents: dict, item: dict,
-                    agent_names: list[str], source: Path,
-                    enable: bool) -> list[tuple[str, Path]]:
+def preflight_links(
+    store: Store,
+    agents: dict,
+    item: dict,
+    agent_names: list[str],
+    source: Path,
+    enable: bool,
+) -> list[tuple[str, Path]]:
     if enable and not source.exists():
         die(f"item source does not exist: {source}")
     operations: list[tuple[str, Path]] = []
@@ -350,6 +389,7 @@ def preflight_links(store: Store, agents: dict, item: dict,
 
 
 # --- commands ----------------------------------------------------------------
+
 
 def cmd_init(args, store: Store) -> None:
     store.init()
@@ -375,15 +415,22 @@ def resolve_git_ref(root: Path, ref: str) -> str:
         ref,
     )
     for candidate in candidates:
-        commit = git("rev-parse", "--verify", f"{candidate}^{{commit}}",
-                     cwd=root, capture=True, check=False)
+        commit = git(
+            "rev-parse",
+            "--verify",
+            f"{candidate}^{{commit}}",
+            cwd=root,
+            capture=True,
+            check=False,
+        )
         if commit:
             return commit
     die(f"git ref not found after fetch: {ref}")
 
 
-def add_source(store: Store, registry: dict, name: str, value: str,
-               ref: str | None) -> tuple[str, bool]:
+def add_source(
+    store: Store, registry: dict, name: str, value: str, ref: str | None
+) -> tuple[str, bool]:
     name = name or default_name(value)
     validate_name(name, "source name")
     local = expand(value)
@@ -399,15 +446,22 @@ def add_source(store: Store, registry: dict, name: str, value: str,
             if existing.get("type") == "local" and existing.get("path") == resolved:
                 return name, False
             die(f"source name {name!r} is already used by a different source")
-        registry["sources"][name] = {"type": "local", "path": str(local.resolve()), "added_at": now()}
+        registry["sources"][name] = {
+            "type": "local",
+            "path": str(local.resolve()),
+            "added_at": now(),
+        }
         return name, True
     if not is_git(value):
         die(f"not a local path or git source: {value}")
     url = normalize_git(value)
     wanted_ref = ref or ""
     if existing:
-        if (existing.get("type") == "git" and existing.get("url") == url
-                and existing.get("ref", "") == wanted_ref):
+        if (
+            existing.get("type") == "git"
+            and existing.get("url") == url
+            and existing.get("ref", "") == wanted_ref
+        ):
             root = source_root(store, existing)
             if not root.is_dir():
                 die(f"registered source checkout is missing: {root}; run doctor")
@@ -437,7 +491,9 @@ def add_source(store: Store, registry: dict, name: str, value: str,
         shutil.rmtree(tmp, ignore_errors=True)
         raise
     registry["sources"][name] = {
-        "type": "git", "url": url, "ref": wanted_ref,
+        "type": "git",
+        "url": url,
+        "ref": wanted_ref,
         "checkout": str(dest.relative_to(store.root)),
         "added_at": now(),
     }
@@ -452,7 +508,7 @@ def cmd_add(args, store: Store) -> None:
         # names such as "skill" unambiguous slugs.
         typ = canonical_type(parts[0])
         rest = parts[1:]
-    else:                                       # kind via --type: add name src subpath
+    else:  # kind via --type: add name src subpath
         typ = canonical_type(args.type or "skill")
         rest = parts
     if len(rest) not in (2, 3):
@@ -463,11 +519,15 @@ def cmd_add(args, store: Store) -> None:
     if slug in registry["items"]:
         die(f"item {slug!r} already exists; remove it first")
     source_value = rest[1]
-    subpath = normalize_relative_path(args.subpath if args.subpath is not None
-                                      else (rest[2] if len(rest) == 3 else "."),
-                                      "subpath")
+    subpath = normalize_relative_path(
+        args.subpath
+        if args.subpath is not None
+        else (rest[2] if len(rest) == 3 else "."),
+        "subpath",
+    )
     source_name, created_source = add_source(
-        store, registry, args.source_name or "", source_value, args.ref)
+        store, registry, args.source_name or "", source_value, args.ref
+    )
     source = registry["sources"][source_name]
     try:
         path = item_path(store, source, subpath)
@@ -484,8 +544,12 @@ def cmd_add(args, store: Store) -> None:
                     shutil.rmtree(checkout)
         raise
     registry["items"][slug] = {
-        "slug": slug, "type": typ, "source": source_name,
-        "path": subpath, "enabled": [], "added_at": now(),
+        "slug": slug,
+        "type": typ,
+        "source": source_name,
+        "path": subpath,
+        "enabled": [],
+        "added_at": now(),
     }
     try:
         store.save_registry(registry)
@@ -504,8 +568,10 @@ def cmd_add(args, store: Store) -> None:
         except BaseException:
             pass
         raise
-    print(f"added {slug} ({typ}) from source {source_name}" +
-          (f" at {subpath}" if subpath != "." else ""))
+    print(
+        f"added {slug} ({typ}) from source {source_name}"
+        + (f" at {subpath}" if subpath != "." else "")
+    )
 
 
 def cmd_scan(args, store: Store) -> None:
@@ -529,7 +595,9 @@ def discover_skills(root: Path, under: str | None = None) -> list[tuple[str, str
         die(f"scan path is not a directory: {scan}")
     found = []
     for cur, dirs, files in os.walk(scan):
-        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("."))
+        dirs[:] = sorted(
+            d for d in dirs if d not in SKIP_DIRS and not d.startswith(".")
+        )
         if "SKILL.md" in files:
             d = Path(cur)
             found.append((d.name, str(d.relative_to(root))))
@@ -538,13 +606,17 @@ def discover_skills(root: Path, under: str | None = None) -> list[tuple[str, str
 
 
 def selected_agents(args, agents: dict, item: dict) -> list[str]:
-    names = list(getattr(args, "agent", None) or []) + list(getattr(args, "agent_flag", None) or [])
+    names = list(getattr(args, "agent", None) or []) + list(
+        getattr(args, "agent_flag", None) or []
+    )
     if args.all and names:
         die("use agent names or --all, not both")
     if args.all:
         if not args.enable:
             return sorted(set(item.get("enabled", [])))
-        return sorted(a for a, c in agents["agents"].items() if c.get(KINDS[item["type"]]))
+        return sorted(
+            a for a, c in agents["agents"].items() if c.get(KINDS[item["type"]])
+        )
     if not names:
         die("pass an agent name or --all")
     return list(dict.fromkeys(names))
@@ -562,9 +634,13 @@ def apply_enable(store, registry, agents, slug, agents_list, enable):
             changed = make_link(target, source) if enable else drop_link(target, source)
             if changed:
                 (created if enable else removed).append(target)
-            print(f"{'enabled ' if enable else 'disabled'} {agent:<12} {slug} -> {target}")
+            print(
+                f"{'enabled ' if enable else 'disabled'} {agent:<12} {slug} -> {target}"
+            )
         enabled = set(old_enabled)
-        enabled.update(agents_list) if enable else enabled.difference_update(agents_list)
+        enabled.update(agents_list) if enable else enabled.difference_update(
+            agents_list
+        )
         item["enabled"] = sorted(enabled)
         store.save_registry(registry)
     except BaseException:
@@ -623,7 +699,8 @@ def cmd_remove(args, store: Store) -> None:
         die(f"item {args.slug!r} references an unknown source; run doctor")
     src = item_path(store, source, item["path"])
     operations = preflight_links(
-        store, agents, item, list(item.get("enabled", [])), src, False)
+        store, agents, item, list(item.get("enabled", [])), src, False
+    )
 
     source_name = item["source"]
     drop_source = not any(
@@ -672,16 +749,24 @@ def cmd_remove(args, store: Store) -> None:
             shutil.rmtree(quarantine)
             print(f"removed source checkout {source_name}")
         except OSError as exc:
-            print(f"warning: registry updated, but could not delete {quarantine}: {exc}",
-                  file=sys.stderr)
+            print(
+                f"warning: registry updated, but could not delete {quarantine}: {exc}",
+                file=sys.stderr,
+            )
     print(f"removed {args.slug}")
 
 
 def cmd_list(args, store: Store) -> None:
     registry = store.registry()
-    rows = [[k, str(v.get("type", "?")), str(v.get("source", "?")),
-             ",".join(v.get("enabled", [])) or "-"]
-            for k, v in sorted(registry["items"].items())]
+    rows = [
+        [
+            k,
+            str(v.get("type", "?")),
+            str(v.get("source", "?")),
+            ",".join(v.get("enabled", [])) or "-",
+        ]
+        for k, v in sorted(registry["items"].items())
+    ]
     table(["SLUG", "TYPE", "SOURCE", "ENABLED"], rows)
 
 
@@ -729,7 +814,8 @@ def cmd_sync(args, store: Store) -> None:
             die(f"item {item.get('slug', '?')!r} references an unknown source")
         source = item_path(store, source_record, item.get("path", "."))
         for agent, target in preflight_links(
-                store, agents, item, list(item.get("enabled", [])), source, True):
+            store, agents, item, list(item.get("enabled", [])), source, True
+        ):
             enable_ops.append((item, source, agent, target))
         for agent in set(agents["agents"]) - set(item.get("enabled", [])):
             if not agents["agents"][agent].get(KINDS[item["type"]]):
@@ -783,11 +869,15 @@ def cmd_doctor(args, store: Store) -> None:
         if not root.exists():
             print(f"ERROR missing item {slug}: {root}")
             problems += 1
-        elif item["type"] == "skill" and not (root.is_dir() and (root / "SKILL.md").is_file()):
+        elif item["type"] == "skill" and not (
+            root.is_dir() and (root / "SKILL.md").is_file()
+        ):
             print(f"ERROR invalid skill {slug}: {root} has no SKILL.md")
             problems += 1
         enabled = item.get("enabled", [])
-        if not isinstance(enabled, list) or not all(isinstance(a, str) for a in enabled):
+        if not isinstance(enabled, list) or not all(
+            isinstance(a, str) for a in enabled
+        ):
             print(f"ERROR {slug}: enabled must be a list of agent names")
             problems += 1
             continue
@@ -809,6 +899,7 @@ def cmd_doctor(args, store: Store) -> None:
         die(f"doctor found {problems} problem(s)")
     print(f"ok: {len(registry['sources'])} source(s), {len(registry['items'])} item(s)")
 
+
 def table(headers: list[str], rows: list[list[str]]) -> None:
     if not rows:
         print("(none)")
@@ -825,6 +916,7 @@ def table(headers: list[str], rows: list[list[str]]) -> None:
 
 # --- cli ---------------------------------------------------------------------
 
+
 @contextlib.contextmanager
 def locked(store: Store):
     store.root.mkdir(parents=True, exist_ok=True)
@@ -840,7 +932,11 @@ def locked(store: Store):
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="agentfiles", description=__doc__.splitlines()[0])
-    p.add_argument("--home", default=os.environ.get("AGENTFILES_HOME", "~/.agentfiles"), help="manager directory (default ~/.agentfiles)")
+    p.add_argument(
+        "--home",
+        default=os.environ.get("AGENTFILES_HOME", "~/.agentfiles"),
+        help="manager directory (default ~/.agentfiles)",
+    )
     sub = p.add_subparsers(dest="command", required=True)
 
     sub.add_parser("init", help="initialize state and create agents.json if missing")
@@ -851,13 +947,23 @@ def build_parser() -> argparse.ArgumentParser:
     a_sub.add_parser("ls", aliases=["list"])
 
     add = sub.add_parser("add", help="register a source + item, optionally enable it")
-    add.add_argument("parts", nargs="+",
-                     help="[<kind>] <slug> <source> [subpath]  (kind: skill|prompt|extension; optional)")
-    add.add_argument("--subpath", help="path within the source (default: root); alt. to positional subpath")
+    add.add_argument(
+        "parts",
+        nargs="+",
+        help="[<kind>] <slug> <source> [subpath]  (kind: skill|prompt|extension; optional)",
+    )
+    add.add_argument(
+        "--subpath",
+        help="path within the source (default: root); alt. to positional subpath",
+    )
     add.add_argument("--type", help="kind when omitted as first arg (default: skill)")
     add.add_argument("--ref", help="git branch/tag/commit to check out")
     add.add_argument("--source-name", help="reuse/name the source explicitly")
-    add.add_argument("--agent", action="append", help="enable for this agent after adding (repeatable)")
+    add.add_argument(
+        "--agent",
+        action="append",
+        help="enable for this agent after adding (repeatable)",
+    )
 
     scan = sub.add_parser("scan", help="list SKILL.md directories under an item")
     scan.add_argument("slug")
@@ -867,14 +973,23 @@ def build_parser() -> argparse.ArgumentParser:
         ep = sub.add_parser(c, help=f"{c} an item for selected agents")
         ep.add_argument("slug")
         ep.add_argument("agent", nargs="*", help="agent name(s) (or use --agent)")
-        ep.add_argument("--agent", dest="agent_flag", action="append", help="agent name (repeatable)")
-        ep.add_argument("--all", action="store_true", help="every compatible/enabled agent")
+        ep.add_argument(
+            "--agent",
+            dest="agent_flag",
+            action="append",
+            help="agent name (repeatable)",
+        )
+        ep.add_argument(
+            "--all", action="store_true", help="every compatible/enabled agent"
+        )
         ep.set_defaults(enable=en)
 
     up = sub.add_parser("update", help="fetch and check out latest git sources")
     up.add_argument("sources", nargs="*")
 
-    sub.add_parser("remove", help="unlink everywhere and drop the source").add_argument("slug")
+    sub.add_parser("remove", help="unlink everywhere and drop the source").add_argument(
+        "slug"
+    )
     sub.add_parser("status", help="list items and show filesystem drift")
     sub.add_parser("sync", help="make symlinks match the registry exactly")
     sub.add_parser("doctor", help="validate sources, items, and enabled links")
